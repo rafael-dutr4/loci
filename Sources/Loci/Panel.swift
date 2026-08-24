@@ -47,7 +47,7 @@ final class Panel {
         content.onRename(space)
       })
 
-    let hosting = NSHostingView(rootView: view)
+    let hosting = FirstMouseHostingView(rootView: view)
     hosting.frame.size = hosting.fittingSize
 
     let panel = OverlayPanel(
@@ -65,6 +65,11 @@ final class Panel {
     panel.isOpaque = false
     panel.hasShadow = true
     panel.hidesOnDeactivate = false
+    // The grid is drawn over another application, which keeps its focus. The
+    // mouse has to be tracked anyway, or the cards cannot light up under the
+    // pointer.
+    panel.acceptsMouseMovedEvents = true
+    panel.ignoresMouseEvents = false
     panel.setFrame(frame(for: hosting.fittingSize), display: true)
     panel.makeKeyAndOrderFront(nil)
     window = panel
@@ -137,9 +142,7 @@ private struct Grid: View {
           }
           HStack(spacing: 14) {
             ForEach(display.spaces, id: \.uuid) { space in
-              Card(space: space, name: name(space))
-                .contentShape(Rectangle())
-                .onTapGesture { onPick(space) }
+              Card(space: space, name: name(space), onPick: { onPick(space) })
                 .contextMenu {
                   Button("Rename...") { onRename(space) }
                 }
@@ -171,12 +174,15 @@ private struct Grid: View {
 private struct Card: View {
   let space: Spaces.Space
   let name: String
+  let onPick: () -> Void
+
+  @State private var hovering = false
 
   var body: some View {
     VStack(spacing: 8) {
       ZStack {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .fill(Color.black.opacity(0.28))
+          .fill(Color.black.opacity(hovering ? 0.14 : 0.28))
 
         if space.apps.isEmpty {
           Text("empty")
@@ -197,9 +203,7 @@ private struct Card: View {
       .frame(width: 168, height: 104)
       .overlay(
         RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .strokeBorder(
-            space.isCurrent ? Color.accentColor : Color.white.opacity(0.18),
-            lineWidth: space.isCurrent ? 3 : 1))
+          .strokeBorder(border, lineWidth: space.isCurrent ? 3 : 1))
 
       HStack(spacing: 6) {
         Text("\(space.index)")
@@ -211,6 +215,39 @@ private struct Card: View {
       }
       .frame(width: 168)
     }
+    // The whole card, icons and label together, is the target. Anything less
+    // means aiming at a thumbnail.
+    .contentShape(Rectangle())
+    .scaleEffect(hovering ? 1.03 : 1)
+    .animation(.easeOut(duration: 0.12), value: hovering)
+    .onHover { hovering = $0 }
+    // A plain gesture and not a Button, because a Button in a panel that never
+    // takes focus draws itself pressed and answers on the second click.
+    .onTapGesture(perform: onPick)
+  }
+
+  /// The current desktop keeps its outline whatever the pointer is doing. It
+  /// answers a different question (where am I) from the hover (where would this
+  /// click take me), so one is not allowed to hide the other.
+  private var border: Color {
+    if space.isCurrent { return .accentColor }
+    return hovering ? Color.white.opacity(0.55) : Color.white.opacity(0.18)
+  }
+}
+
+/// A window that is not key swallows the click that makes it key, so the first
+/// click on a card would only wake the panel and the second would pick the
+/// desktop. Loci is summoned by a hotkey over an application that keeps its
+/// focus, so that first click is the only click there is.
+private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+  required init(rootView: Content) {
+    super.init(rootView: rootView)
+  }
+
+  @MainActor required dynamic init?(coder: NSCoder) {
+    fatalError("Loci builds its views in code")
   }
 }
 

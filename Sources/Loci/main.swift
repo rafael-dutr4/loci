@@ -42,7 +42,7 @@ final class Loci: NSObject, NSApplicationDelegate {
 
     do {
       hotkey = try Hotkey(keyCode: chord.keyCode, modifiers: chord.modifiers) { [weak self] in
-        self?.show()
+        self?.toggle()
       }
     } catch {
       Log.say("loci: \(error.localizedDescription)")
@@ -81,6 +81,12 @@ final class Loci: NSObject, NSApplicationDelegate {
 
   private func title(for space: Spaces.Space) -> String {
     names.name(for: space.uuid) ?? (space.isFullScreen ? "Full screen" : "Desktop \(space.index)")
+  }
+
+  /// The same chord opens and closes it. A hotkey that only opens leaves me
+  /// pressing Escape to undo something I did with one key.
+  private func toggle() {
+    panel.isVisible ? panel.hide() : show()
   }
 
   private func show() {

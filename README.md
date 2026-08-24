@@ -5,6 +5,8 @@ macOS calls them Desktop 1 to Desktop 5. Loci lets you call them what they are.
 It is a menu bar app that draws its own row of desktops over whatever you are
 doing, with your names on them, and jumps to the one you click.
 
+![the grid](Resources/grid.png)
+
 ## What it does not do
 
 It does not rename anything in Mission Control. That label is drawn by the Dock,
