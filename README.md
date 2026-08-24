@@ -19,13 +19,17 @@ looking at, so the windows on the others are not being drawn and no API can
 photograph them. The cards show the icons of the applications living on each
 desktop, which comes for free and answers the same question.
 
+Those icons come from the window list, which is metadata only: no titles are
+read and no images are captured, so Loci never asks for Screen Recording.
+
 ## What it touches
 
 Worth knowing before you run something that talks to undocumented parts of the
 system:
 
 - **It reads through three private CGS functions**, found with `dlsym`:
-  `_CGSDefaultConnection`, `CGSGetActiveSpace` and `CGSCopyManagedDisplaySpaces`.
+  `_CGSDefaultConnection`, `CGSGetActiveSpace`, `CGSCopyManagedDisplaySpaces` and
+  `CGSCopySpacesForWindows`.
   They only read. Nothing here needs SIP disabled. If a macOS release renames
   one, the lookup returns nil and Loci falls back to the public
   `com.apple.spaces` preference domain, which has the same shape and lags a beat.

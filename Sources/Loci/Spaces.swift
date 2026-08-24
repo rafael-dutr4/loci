@@ -12,6 +12,7 @@ import Foundation
 /// and it lags: it is the window server's record being written out, so a read
 /// right after a switch still describes the desktop I just left. It is the
 /// fallback, for the macOS release that renames a private symbol.
+@MainActor
 enum Spaces {
   struct Space {
     /// Stable across reboots and across reordering the desktops in Mission
@@ -56,6 +57,7 @@ enum Spaces {
 
   private static func parse(_ monitors: [[String: Any]]) -> [Display] {
     let active = activeSpaceID
+    let windows = Windows.bySpace()
     var index = 0
     var displays: [Display] = []
     for monitor in monitors {
@@ -80,7 +82,11 @@ enum Spaces {
             // full screen and got a desktop of its own, which I did not name
             // and cannot keep.
             isFullScreen: (space["type"] as? Int ?? 0) != 0,
-            apps: apps(on: space)))
+            // The window list is the truth about what lives on a desktop.
+            // What the layout carries is Stage Manager's grouping, which is
+            // most of the windows missing, and it is only used when the
+            // private call behind the window list is not there.
+            apps: windows?[space["ManagedSpaceID"] as? Int ?? 0] ?? apps(on: space)))
       }
 
       displays.append(
@@ -107,7 +113,7 @@ enum Spaces {
     return Int(unsafeBitCast(symbol, to: ActiveSpaceFn.self)(connection))
   }
 
-  private static func connection() -> Int32? {
+  static func connection() -> Int32? {
     guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "_CGSDefaultConnection")
     else { return nil }
     return unsafeBitCast(symbol, to: ConnectionFn.self)()
