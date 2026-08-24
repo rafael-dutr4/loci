@@ -163,11 +163,11 @@ private struct Grid: View {
         .fill(.ultraThinMaterial))
   }
 
-  /// The identifier of a display is a UUID, which says nothing to me. The main
-  /// one calls itself Main, and the others are told apart by position on the
-  /// screen, so the first few characters are enough to see they are different.
+  /// The name macOS gives the display, so the caption reads Studio Display and
+  /// not a UUID. A display that is listed but not attached has no NSScreen, and
+  /// then there is nothing better than the identifier.
   private func label(for display: Spaces.Display) -> String {
-    display.identifier == "Main" ? "Main display" : "Display \(display.identifier.prefix(8))"
+    Screens.name(for: display.identifier) ?? "Display \(display.identifier.prefix(8))"
   }
 }
 
@@ -203,14 +203,14 @@ private struct Card: View {
       .frame(width: 168, height: 104)
       .overlay(
         RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .strokeBorder(border, lineWidth: space.isCurrent ? 3 : 1))
+          .strokeBorder(border, lineWidth: space.isActive ? 3 : (space.isCurrent ? 2 : 1)))
 
       HStack(spacing: 6) {
         Text("\(space.index)")
           .font(.caption.monospaced())
           .foregroundStyle(.secondary)
         Text(name)
-          .font(.system(size: 13, weight: space.isCurrent ? .semibold : .regular))
+          .font(.system(size: 13, weight: space.isActive ? .semibold : .regular))
           .lineLimit(1)
       }
       .frame(width: 168)
@@ -226,11 +226,16 @@ private struct Card: View {
     .onTapGesture(perform: onPick)
   }
 
-  /// The current desktop keeps its outline whatever the pointer is doing. It
-  /// answers a different question (where am I) from the hover (where would this
-  /// click take me), so one is not allowed to hide the other.
+  /// Three states, and they answer three different questions.
+  ///
+  /// The active desktop is where my keyboard is, and there is exactly one. The
+  /// current desktops are what each other display is showing, which is a real
+  /// thing to know and not the same thing, so they are outlined faintly rather
+  /// than identically. Hover is where the click would take me, and it is never
+  /// allowed to hide either of the first two.
   private var border: Color {
-    if space.isCurrent { return .accentColor }
+    if space.isActive { return .accentColor }
+    if space.isCurrent { return .accentColor.opacity(0.4) }
     return hovering ? Color.white.opacity(0.55) : Color.white.opacity(0.18)
   }
 }

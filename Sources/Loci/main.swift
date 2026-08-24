@@ -73,10 +73,7 @@ final class Loci: NSObject, NSApplicationDelegate {
   /// fallback, for when the private call is gone.
   private var current: Spaces.Space? {
     let spaces = displays.flatMap(\.spaces)
-    if let active = Spaces.activeSpaceID, let space = spaces.first(where: { $0.id == active }) {
-      return space
-    }
-    return displays.first?.spaces.first(where: \.isCurrent)
+    return spaces.first(where: \.isActive) ?? displays.first?.spaces.first(where: \.isCurrent)
   }
 
   private func title(for space: Spaces.Space) -> String {

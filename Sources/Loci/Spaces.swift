@@ -24,7 +24,10 @@ enum Spaces {
     /// the number in Ctrl+N, which is why it is counted this way and not per
     /// display.
     let index: Int
+    /// Current on its own display. With two displays, two desktops are.
     let isCurrent: Bool
+    /// The one my keyboard is on. There is only ever one.
+    let isActive: Bool
     let isFullScreen: Bool
     /// Bundle identifiers of what lives there, in no particular order.
     let apps: [String]
@@ -52,6 +55,7 @@ enum Spaces {
   }
 
   private static func parse(_ monitors: [[String: Any]]) -> [Display] {
+    let active = activeSpaceID
     var index = 0
     var displays: [Display] = []
     for monitor in monitors {
@@ -71,6 +75,7 @@ enum Spaces {
             id: space["ManagedSpaceID"] as? Int ?? 0,
             index: index,
             isCurrent: uuid == current,
+            isActive: space["ManagedSpaceID"] as? Int == active,
             // Type 0 is a desktop I made. Anything else is a window that went
             // full screen and got a desktop of its own, which I did not name
             // and cannot keep.
