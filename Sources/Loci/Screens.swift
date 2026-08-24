@@ -11,14 +11,17 @@ enum Screens {
     // The preference domain, which is the fallback source, calls the main one
     // Main rather than giving it a UUID.
     if identifier == "Main" { return "Main display" }
+    return screen(for: identifier)?.localizedName
+  }
 
+  static func screen(for identifier: String) -> NSScreen? {
     for screen in NSScreen.screens {
       let key = NSDeviceDescriptionKey("NSScreenNumber")
       guard let number = screen.deviceDescription[key] as? NSNumber else { continue }
       guard let uuid = CGDisplayCreateUUIDFromDisplayID(number.uint32Value)?.takeRetainedValue()
       else { continue }
       if CFUUIDCreateString(nil, uuid) as String == identifier {
-        return screen.localizedName
+        return screen
       }
     }
     return nil

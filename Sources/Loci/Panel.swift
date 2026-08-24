@@ -133,7 +133,7 @@ private struct Grid: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
-      ForEach(Array(displays.enumerated()), id: \.offset) { _, display in
+      ForEach(Array(ordered.enumerated()), id: \.offset) { _, display in
         VStack(alignment: .leading, spacing: 10) {
           if displays.count > 1 {
             Text(label(for: display))
@@ -161,6 +161,28 @@ private struct Grid: View {
     .background(
       RoundedRectangle(cornerRadius: 22, style: .continuous)
         .fill(.ultraThinMaterial))
+  }
+
+  /// The displays as they are arranged in front of me, top one first and then
+  /// left to right. The window server hands them over in its own order, which
+  /// puts the built in screen above the external one it sits under, and a grid
+  /// that disagrees with the desk is a grid I have to translate.
+  ///
+  /// This only changes what is drawn where. The number on a card is the number
+  /// Ctrl+N answers to, and that belongs to the system's order, so it is left
+  /// alone.
+  private var ordered: [Spaces.Display] {
+    displays.enumerated().sorted { left, right in
+      let a = Screens.screen(for: left.element.identifier)?.frame
+      let b = Screens.screen(for: right.element.identifier)?.frame
+      // A display that is listed but not attached has no frame and no place on
+      // the desk, so it goes last and keeps the order it came in.
+      guard let a else { return false }
+      guard let b else { return true }
+      if a.maxY != b.maxY { return a.maxY > b.maxY }
+      if a.minX != b.minX { return a.minX < b.minX }
+      return left.offset < right.offset
+    }.map(\.element)
   }
 
   /// The name macOS gives the display, so the caption reads Studio Display and
