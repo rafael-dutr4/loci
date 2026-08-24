@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Loci</string>
+	<key>CFBundleIdentifier</key>
+	<string>br.dutra.loci</string>
+	<key>CFBundleExecutable</key>
+	<string>Loci</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1</string>
+	<!-- No dock icon. The menu bar and the panel are the whole interface. -->
+	<key>LSUIElement</key>
+	<true/>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+</dict>
+</plist>

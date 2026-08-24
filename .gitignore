@@ -1,0 +1,10 @@
+# Build output. The bundle is made by `make app` and is 300K of binary.
+.build/
+Loci.app/
+.swiftpm/
+
+# My names for the desktops live in ~/.config/loci/names.json and never here.
+# This line is only insurance against someone (me) copying one in to test.
+names.json
+
+.DS_Store
