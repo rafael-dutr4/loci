@@ -27,7 +27,8 @@ enum Spaces {
     let index: Int
     /// Current on its own display. With two displays, two desktops are.
     let isCurrent: Bool
-    /// The one my keyboard is on. There is only ever one.
+    /// The one my keyboard is on: current, and on the display I am typing on.
+    /// There is only ever one.
     let isActive: Bool
     let isFullScreen: Bool
     /// Bundle identifiers of what lives there, in no particular order.
@@ -57,6 +58,12 @@ enum Spaces {
 
   private static func parse(_ monitors: [[String: Any]]) -> [Display] {
     let active = activeSpaceID
+    // `CGSGetActiveSpace` names the main display's desktop no matter which
+    // screen I am typing on, so on a second monitor it is a screen behind. The
+    // display with the focus decides instead, and the active space id is only
+    // the fallback for when no display can be picked out.
+    let identifiers = monitors.compactMap { $0["Display Identifier"] as? String }
+    let focused = Screens.focused().flatMap { identifiers.contains($0) ? $0 : nil }
     let windows = Windows.bySpace()
     var index = 0
     var displays: [Display] = []
@@ -66,6 +73,7 @@ enum Spaces {
       // history, not a grid.
       guard let raw = monitor["Spaces"] as? [[String: Any]], !raw.isEmpty else { continue }
 
+      let identifier = monitor["Display Identifier"] as? String ?? "unknown"
       let current = (monitor["Current Space"] as? [String: Any])?["uuid"] as? String
       var spaces: [Space] = []
       for space in raw {
@@ -77,7 +85,8 @@ enum Spaces {
             id: space["ManagedSpaceID"] as? Int ?? 0,
             index: index,
             isCurrent: uuid == current,
-            isActive: space["ManagedSpaceID"] as? Int == active,
+            isActive: focused.map { $0 == identifier && uuid == current }
+              ?? (space["ManagedSpaceID"] as? Int == active),
             // Type 0 is a desktop I made. Anything else is a window that went
             // full screen and got a desktop of its own, which I did not name
             // and cannot keep.
@@ -90,9 +99,7 @@ enum Spaces {
       }
 
       displays.append(
-        Display(
-          identifier: monitor["Display Identifier"] as? String ?? "unknown",
-          spaces: spaces))
+        Display(identifier: identifier, spaces: spaces))
     }
     return displays
   }

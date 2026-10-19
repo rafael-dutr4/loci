@@ -25,6 +25,21 @@ final class Loci: NSObject, NSApplicationDelegate {
       Task { @MainActor in self?.refresh() }
     }
 
+    // Clicking into a window on the other monitor moves my keyboard there
+    // without changing any desktop, so no space notification comes: the menu
+    // bar would keep naming the desktop on the screen I just left.
+    //
+    // The grid is left alone here. Clicking a card counts as activating Loci,
+    // and redrawing the grid between the press and the release throws the
+    // click away, which is the panel refusing to switch desktops at all.
+    NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.didActivateApplicationNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      Task { @MainActor in self?.refresh(redrawing: false) }
+    }
+
     // A display coming or going rearranges the desktops without any of them
     // becoming active, so the space notification never fires for it.
     NotificationCenter.default.addObserver(
@@ -39,6 +54,12 @@ final class Loci: NSObject, NSApplicationDelegate {
     // modal and a permission prompt in the middle of switching desktops is the
     // opposite of what the panel is for.
     Switcher.requestAccessibility()
+    // Said out loud because without it every click on a card does nothing, and
+    // the grant is per binary, so a rebuild can quietly drop it.
+    Log.say(
+      AXIsProcessTrusted()
+        ? "accessibility granted, so clicks and Ctrl+N will land"
+        : "no accessibility: tick Loci in Privacy & Security > Accessibility")
 
     do {
       hotkey = try Hotkey(keyCode: chord.keyCode, modifiers: chord.modifiers) { [weak self] in
@@ -58,19 +79,19 @@ final class Loci: NSObject, NSApplicationDelegate {
 
   /// Reading is cheap and the truth is one call away, so nothing is cached
   /// between summons. The only state Loci owns is the names.
-  private func refresh() {
+  private func refresh(redrawing: Bool = true) {
     displays = Spaces.read()
     let name = current.map { title(for: $0) } ?? "Loci"
+    if statusItem.button?.title != name { Log.say("now on \(name)") }
     statusItem.button?.title = name
-    Log.say("now on \(name)")
     statusItem.menu = menu()
-    if panel.isVisible { show() }
+    if redrawing, panel.isVisible { show() }
   }
 
   /// Each display has its own current desktop, so there is no single current
-  /// one. The window server has an opinion (the display I am actually working
-  /// on) and that is the one the menu bar names. The first display is only the
-  /// fallback, for when the private call is gone.
+  /// one. The one that counts is the one on the display my keyboard is on, and
+  /// that is the one the menu bar names. The first display is only the
+  /// fallback, for when the focused display cannot be worked out at all.
   private var current: Spaces.Space? {
     let spaces = displays.flatMap(\.spaces)
     return spaces.first(where: \.isActive) ?? displays.first?.spaces.first(where: \.isCurrent)
@@ -97,6 +118,14 @@ final class Loci: NSObject, NSApplicationDelegate {
         onRename: { [weak self] space in self?.rename(space) }))
   }
 
+  /// The desktops a click would do nothing on. The shortcuts are written once,
+  /// for the desktops that existed at the time, so adding a seventh desktop
+  /// later leaves a card with no Ctrl+7 behind it. Anything past nine is out of
+  /// reach for good and is not counted here.
+  private var unreachable: [Spaces.Space] {
+    displays.flatMap(\.spaces).filter { $0.index <= 9 && !Switcher.canSwitch(to: $0.index) }
+  }
+
   /// Only shown when a click would do nothing. Ctrl+N ships disabled, and a
   /// grid that silently ignores half of my clicks is worse than no grid.
   private var hint: String? {
@@ -105,10 +134,16 @@ final class Loci: NSObject, NSApplicationDelegate {
     if !AXIsProcessTrusted() {
       return "Switching needs Loci ticked in Privacy & Security > Accessibility."
     }
-    if !reachable.allSatisfy({ Switcher.canSwitch(to: $0.index) }) {
+    let missing = unreachable
+    guard !missing.isEmpty else { return nil }
+    if missing.count == reachable.count {
       return "Switching needs Mission Control's Ctrl+number shortcuts turned on."
     }
-    return nil
+    // Naming them, because the rest of the grid works and the broken ones are
+    // the ones I just made.
+    let numbers = missing.map { "\($0.index)" }.joined(separator: ", ")
+    let plural = missing.count == 1 ? "Desktop \(numbers) has" : "Desktops \(numbers) have"
+    return "\(plural) no Ctrl+number shortcut yet: turn it on from the Loci menu."
   }
 
   private func rename(_ space: Spaces.Space) {
@@ -136,13 +171,16 @@ final class Loci: NSObject, NSApplicationDelegate {
       keyEquivalent: ""
     ).target = self
     if current != nil {
-      menu.addItem(withTitle: "Rename this desktop...", action: #selector(renameCurrent),
-        keyEquivalent: "").target = self
+      menu.addItem(
+        withTitle: "Rename this desktop...", action: #selector(renameCurrent),
+        keyEquivalent: ""
+      ).target = self
     }
     menu.addItem(.separator())
-    // Only offered while it would change something. Once the shortcuts exist,
-    // the honest place to edit them is System Settings.
-    if !Switcher.canSwitch(to: 1) {
+    // Only offered while it would change something, which includes the case of
+    // desktops added after the shortcuts were written. Once every desktop has
+    // one, the honest place to edit them is System Settings.
+    if !unreachable.isEmpty {
       menu.addItem(
         withTitle: "Turn on Ctrl+number switching", action: #selector(turnOnSwitching),
         keyEquivalent: ""
